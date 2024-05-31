@@ -1,0 +1,6 @@
+# Ignore the virtual environment directory
+.venv/
+
+# Default ignored files
+/shelf/
+/workspace.xml
