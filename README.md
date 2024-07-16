@@ -13,6 +13,7 @@ CustomerInsightAI is a project aimed at automating the understanding of customer
 
 ## File Structure
 ICS Project 1
+```plaintext
 ├── .venv # Virtual environment
 ├── audio_to_text # Directory for audio to text conversion scripts
 ├── Customer_Insight_AI_backend
@@ -37,6 +38,7 @@ ICS Project 1
 ├── init.py # Initialization script
 ├── README.md # Project documentation
 ├── requirements.txt # Python dependencies
+```
 
 ## Usage
 The primary goal of CustomerInsightAI is to streamline customer call analysis, providing valuable insights into customer sentiments and concerns. This can be particularly useful in the data visualisation of customer care calls.
