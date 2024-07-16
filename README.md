@@ -159,13 +159,12 @@ yarl==1.9.4
    ```
 
 ## License
-This project is licensed under the MIT License. See the <a href="license.txt">License</a> file for details.
+This project is licensed under the MIT License. See the <a href="MIT_license.txt">License</a> file for details.
 
-This project is licensed under the Apache License. See the <a href="license_1.txt">License</a> file for details.
+This project is licensed under the Apache License. See the <a href="Apache_license.txt">License</a> file for details.
 
-This project is licensed under the BSD-3-Clause License. See the <a href="license_2.txt">License</a> file for details.
+This project is licensed under the BSD-3-Clause License. See the <a href="BSD_3-Clause_license.txt">License</a> file for details.
 
-This project is licensed under the Server Side Public License (SSPL). See the <a href="license_3.txt">License</a> file for details.
 
 
 For any issues or contributions, feel free to reach out via the GitHub repository (https://github.com/James-Muthama/CustomerInsightAI/) or email (jamesmuthaiks@gmail.com)
