@@ -12,7 +12,7 @@ CustomerInsightAI is a project aimed at automating the understanding of customer
 4. **Backend with MongoDB**: The backend, supported by MongoDB, stores the categorized data obtained from the AI model, allowing for efficient retrieval and analysis of categorized customer care conversations.
 
 ## File Structure
-ICS Project 1
+The project structure is organized as follows:
 ```plaintext
 ├── .venv # Virtual environment
 ├── audio_to_text # Directory for audio to text conversion scripts
