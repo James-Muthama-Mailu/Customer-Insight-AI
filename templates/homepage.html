@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <header>
+        <a href="{{ url_for('homepage') }}"><h1>Customer Insight AI</h1></a>
+    </header>
+
+    <div id="left_column">
+        <a href="{{ url_for('profile') }}" id="profile_link">
+            <div id="profile">
+                <div id="profile_info">
+                    <div id="profile_photo_container">
+                        <img src="{{ url_for('profile_image') }}" alt="Profile Photo" id="profile_photo">
+                    </div>
+                    <div id="company_name">{{ session['user'] }}</div>
+                </div>
+            </div>
+        </a>
+        <a href="{{ url_for('data_visualisation') }}" id="dashboard_link">Dashboard</a>
+        <a href="{{ url_for('upload_file') }}" id="upload_link">Upload Call</a>
+        <div id="logout_image_container">
+            <div id="logout_image_cont">
+                <img src="{{ url_for('static', filename='images/logout_img.png') }}" alt="Logout Image" id="logout_image">
+            </div>
+            <a href="{{ url_for('logout') }}" id="logout_link">Logout</a>
+        </div>
+    </div>
+
+    <div id="content">
+        <div id="welcome_msg">
+            <p id="welcome">Welcome {{ session['user'] }}</p>
+        </div>
+        <div id="instructions">
+            <h2>How to use Customer Insight AI</h2>
+            <div class="instruction_block">
+                <p>To get started, please upload an MP3 recording of a customer care call.</p>
+                <div class="instruction_images">
+                    <img src="{{ url_for('static', filename='images/upload.png') }}" alt="Upload Image">
+                </div>
+            </div>
+            <div class="instruction_block">
+                <p>The system will process the recording and categorize the content, which will be displayed on the dashboard.</p>
+                <div class="instruction_images">
+                    <img src="{{ url_for('static', filename='images/visualisation.png') }}" alt="Visualisation Image">
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

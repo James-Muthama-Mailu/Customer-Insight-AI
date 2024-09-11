@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<header>
+    <a href="{{ url_for('home') }}"><h1>Customer Insight AI</h1></a>
+    <nav>
+        <a href="#">Services</a> |
+        <a href="#">About</a> |
+        <a href="{{ url_for('sign_out') }}">Logout</a>
+    </nav>
+</header>
+
+<div id="admin_card_1">
+    <h1>Customers</h1>
+    <div class="table-container">
+        <table id="customers-table" class="styled-table">
+            <thead>
+                <tr>
+                    <th>Customer ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone Number</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in customers %}
+                <tr>
+                    <td>{{ customer['_id'] }}</td>
+                    <td>{{ customer['name'] }}</td>
+                    <td>{{ customer['email'] }}</td>
+                    <td>{{ customer['phone_no'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="admin_card_2">
+    <h1>Customer Login Period</h1>
+    <div class="table-container">
+        <table id="customer-login-period-table" class="styled-table">
+            <thead>
+                <tr>
+                    <th>Customer ID</th>
+                    <th>Login Time</th>
+                    <th>Logout Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for admin in admins %}
+                <tr>
+                    <td>{{ admin['customer_id'] }}</td>
+                    <td>{{ admin['login_date'] }}</td>
+                    <td>{{ admin['logout_date'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<footer>
+    <p>Copyright &copy; 2024 All Rights Reserved. By Customer Insight AI</p>
+</footer>
+
+{% endblock %}
+

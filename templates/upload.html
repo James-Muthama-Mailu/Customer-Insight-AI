@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <!-- Header -->
+    <header>
+        <a href="{{ url_for('homepage') }}" class="logo"><h1>Customer Insight AI</h1></a>
+    </header>
+
+    <!-- Left Column -->
+    <div id="left_column">
+        <a href="{{ url_for('profile') }}" id="profile_link">
+            <div id="profile">
+                <div id="profile_info">
+                    <div id="profile_photo_container">
+                        <img src="{{ url_for('profile_image') }}" alt="Profile Photo" id="profile_photo">
+                    </div>
+                    <div id="company_name">{{ session['user'] }}</div>
+                </div>
+            </div>
+        </a>
+        <a href="{{ url_for('data_visualisation') }}" id="dashboard_link">Dashboard</a>
+        <a href="{{ url_for('upload_file') }}" id="upload_link">Upload Call</a>
+        <div id="logout_image_container">
+            <div id="logout_image_cont">
+                <img src="{{ url_for('static', filename='images/logout_img.png') }}" alt="Logout Image" id="logout_image">
+            </div>
+            <a href="{{ url_for('logout') }}" id="logout_link">Logout</a>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content">
+        <!-- Upload Form -->
+        <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="upload-form">
+            <input type="file" name="file" accept=".mp3" class="upload-input">
+            <input type="hidden" name="loading" value="true">
+            <input type="submit" value="Upload" class="upload-submit">
+        </form>
+
+        <!-- Processing Message -->
+        {% if loading%}
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Processing your file, please wait...</p>
+        </div>
+        {% endif %}
+
+        <!-- Flash Messages -->
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul class="flashes">
+                        {% for category, message in messages %}
+                            <li class="flash-item {{ category }}">{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div id="admin_card_1">
+            <h1>Recent Files</h1>
+            <div class="table-container">
+                <table id="customers-table" class="styled-table">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Category Found</th>
+                            <th>Probability</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in customers %}
+                        <tr>
+                            <td>{{ customer['video_file_name'] }}</td>
+                            <td>{{ customer['category'] }}</td>
+                            <td>{{ customer['probability'] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
