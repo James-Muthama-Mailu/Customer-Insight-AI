@@ -1,4 +1,3 @@
-# models/categorisation_model/making_prediction.py
 import string
 import nltk
 from nltk import word_tokenize, sent_tokenize
@@ -113,7 +112,7 @@ def process_text_for_prediction(transcribed_audio, word_embeddings):
 
     # Generate sentence embedding using the same method as training
     sentence_emb = sentence_embedding(cleaned_tokens, word_embeddings)
-    print(f"Processed embedding for sentence: {sentence_emb}")  # Display the processed embedding
+    # print(f"Processed embedding for sentence: {sentence_emb}")  # Display the processed embedding
     return [sentence_emb]  # Return as list for consistency
 
 
@@ -188,7 +187,7 @@ def classify_sentences(sentences_list):
             word_embeddings
         )
         all_embeddings.extend(embeddings)
-        print(f"Embeddings for sentence '{sentence}': {embeddings}")
+        # print(f"Embeddings for sentence '{sentence}': {embeddings}")
 
         # Get predictions for the current sentence
         classification_results, probabilities = predictions(model, embeddings, intents_list)
@@ -236,9 +235,9 @@ def classify_sentences(sentences_list):
     return aggregated_categories, aggregated_descriptions, all_class_probabilities
 
 # Update the main execution block
-sentences = sent_tokenize(
-    'Hello, I ordered a pair of shoes from your website last week, and they still haven’t arrived. I’m really frustrated because I needed them for an event tomorrow. Can you please check on the status? . Thank you for reaching out, I apologize for the inconvenience. Let me check the tracking information for you. . It looks like there was a delay due to a shipping issue, and the package is now scheduled to arrive by tomorrow afternoon. Would you like me to expedite it or issue a refund if it doesn’t meet your timeline? . I’d prefer an expedited delivery if possible, as I really need the shoes for the event. Thank you! . Great, I’ve requested the expedited shipping, and you should receive an updated tracking link shortly. Please let me know if there’s anything else I can assist with!'
-)
-categories, probabilities, class_probabilities = classify_sentences(sentences)
-print("\nPredicted Categories:", categories)
-print("Top Probabilities:", probabilities)
+# sentences = sent_tokenize(
+#     'Hello, I ordered a pair of shoes from your website last week, and they still haven’t arrived. I’m really frustrated because I needed them for an event tomorrow. Can you please check on the status? . Thank you for reaching out, I apologize for the inconvenience. Let me check the tracking information for you. . It looks like there was a delay due to a shipping issue, and the package is now scheduled to arrive by tomorrow afternoon. Would you like me to expedite it or issue a refund if it doesn’t meet your timeline? . I’d prefer an expedited delivery if possible, as I really need the shoes for the event. Thank you! . Great, I’ve requested the expedited shipping, and you should receive an updated tracking link shortly. Please let me know if there’s anything else I can assist with!'
+# )
+# categories, probabilities, class_probabilities = classify_sentences(sentences)
+# print("\nPredicted Categories:", categories)
+# print("Top Probabilities:", probabilities)

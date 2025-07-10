@@ -60,7 +60,7 @@ nav a:hover {
 
 #header-info p {
     position: absolute;
-    font-family: 'Brush Script MT', cursive;
+    font-family: 'Roboto', sans-serif; /* Unique font for h2 */
     bottom: 20px;
     left: 20px;
     margin: 0;
@@ -97,7 +97,7 @@ nav a:hover {
 }
 
 #about p {
-    font-family: 'Brush Script MT', cursive;
+    font-family: 'Roboto', sans-serif; /* Unique font for h2 */
     color: #fff; /* Text color */
     margin: 10px 0; /* Adjusting margin */
 }
@@ -141,7 +141,7 @@ nav a:hover {
    top: 150px;
    position: absolute;
    top: 20%;
-   font-family: 'Brush Script MT', cursive;
+   font-family: 'Arial Black', sans-serif;
    color: #fff;
 }
 
@@ -149,7 +149,7 @@ nav a:hover {
    top: 150px;
    position: absolute;
    top: 20%;
-   font-family: 'Brush Script MT', cursive;
+   font-family: 'Arial Black', sans-serif;
    color: #fff;
 }
 

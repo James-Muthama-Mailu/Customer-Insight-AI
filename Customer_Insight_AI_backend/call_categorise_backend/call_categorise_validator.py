@@ -1,4 +1,4 @@
-call_categorise_validator = {
+intent_call_categorise_validator = {
     "$jsonSchema": {
         "bsonType": "object",
         "required": ["customer_id"],

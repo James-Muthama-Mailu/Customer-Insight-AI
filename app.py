@@ -1,30 +1,38 @@
-import datetime
+
 import smtplib
 import uuid
+from collections import defaultdict
+from datetime import timedelta
 from email.mime.text import MIMEText
 from functools import wraps
+from io import BytesIO
+import os
+from pathlib import Path
+
+from flask import flash, redirect, request, url_for, session, render_template
 from werkzeug.utils import secure_filename
-from bson import ObjectId
+from bson.objectid import ObjectId
+import datetime
+from nltk import sent_tokenize
+import numpy as np
+import plotly.graph_objs as go
 import pyotp
 import requests
-from passlib.hash import pbkdf2_sha256
-from Customer_Insight_AI_backend.connection import client
-from dotenv import load_dotenv, find_dotenv
-import os
-from flask import Flask, request, redirect, url_for, flash, session, render_template, send_file, jsonify
-from audio_to_text.audio_to_text import audio_transcription
-from models.categorisation_model.making_prediction import classify_text_results
 from bson import Binary
-from io import BytesIO
-import plotly.graph_objs as go
-from datetime import timedelta
-from collections import defaultdict
-import numpy as np
+from dotenv import load_dotenv, find_dotenv
+from flask import Flask, send_file
+from passlib.hash import pbkdf2_sha256
+
+from Customer_Insight_AI_backend.connection import client
+from audio_to_text.audio_to_text import audio_transcription
+from audio_to_text.audio_to_wav import mp3_to_wav
+from models.intent_categorisation_model.making_prediction import classify_sentences
+from models.emotion_categorisation_model.emotion_prediction import get_emotion_prediction
 
 # Define the allowed extensions for images
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-UPLOAD_FOLDER = 'C:/Users/James Muthama/ICS Project 1/ICS Project 1'
+UPLOAD_FOLDER = 'C:/Users/james/PycharmProjects/CustomerInsightAI/Customer-Insight-AI'
 ALLOWED_EXTENSIONS = {'mp3'}
 
 # Load environment variables from .env file
@@ -33,8 +41,9 @@ load_dotenv(find_dotenv())
 # Declaration of collections
 company_collection = client.Customer_Insight_AI.Customer
 admin_collection = client.Customer_Insight_AI.Admin
-call_categorise = client.Customer_Insight_AI.Call_Categorises
+intent_call_categorise = client.Customer_Insight_AI.Intent_Call_Categorises
 call_files = client.Customer_Insight_AI.Call_Files
+emotion_call_categories = client.Customer_Insight_AI.Emotion_Call_Categorises
 
 # Email configuration
 EMAIL_ADDRESS = os.environ.get("EMAIL_ADDRESS")
@@ -72,36 +81,205 @@ def allowed_file(filename):
 def allowed_image_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
 
+def get_summed_emotion_data(field_name):
+    """
+    Retrieves and aggregates data for a specific emotion field from a MongoDB collection,
+    summing values by day and formatting dates as 'Month Day'.
 
-def get_specific_field_data(field_name):
-    values = []
-    dates = []
+    Args:
+        field_name (str): The name of the emotion field to query (e.g., 'happy').
 
-    cursor = call_categorise.find({}, {field_name + '.values': 1, field_name + '.dates': 1, '_id': 0})
+    Returns:
+        tuple: (values, formatted_dates)
+            - values: List of summed values for each day.
+            - formatted_dates: List of dates formatted as 'Month Day' (e.g., 'June 25').
+    """
+    # Dictionary to accumulate sums for each day
+    daily_sums = defaultdict(int)
 
-    interval_sums = defaultdict(int)
-    interval_dates = []
+    # Query the MongoDB collection
+    cursor = emotion_call_categories.find({}, {field_name + '.values': 1, field_name + '.dates': 1, '_id': 0})
 
     for doc in cursor:
         if field_name in doc:
             field_data = doc[field_name]
             if field_data and 'values' in field_data and 'dates' in field_data:
                 for value, date in zip(field_data['values'], field_data['dates']):
+                    # Truncate to day (remove time component)
+                    day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
+                    daily_sums[day_start] += value
+
+    if not daily_sums:
+        return [], []
+
+    # Sort by date and prepare output
+    sorted_days = sorted(daily_sums.items())
+    dates, values = zip(*sorted_days)
+
+    # Format dates as 'Month Day'
+    formatted_dates = [dt.strftime("%B %d") for dt in dates]
+
+    return list(values), list(formatted_dates)
+
+def get_summed_intent_data(field_name):
+    """
+    Retrieves and aggregates data for a specific emotion field from a MongoDB collection,
+    summing values by day and formatting dates as 'Month Day'.
+
+    Args:
+        field_name (str): The name of the emotion field to query (e.g., 'happy').
+
+    Returns:
+        tuple: (values, formatted_dates)
+            - values: List of summed values for each day.
+            - formatted_dates: List of dates formatted as 'Month Day' (e.g., 'June 25').
+    """
+    # Dictionary to accumulate sums for each day
+    daily_sums = defaultdict(int)
+
+    # Query the MongoDB collection
+    cursor = intent_call_categorise.find({}, {field_name + '.values': 1, field_name + '.dates': 1, '_id': 0})
+
+    for doc in cursor:
+        if field_name in doc:
+            field_data = doc[field_name]
+            if field_data and 'values' in field_data and 'dates' in field_data:
+                for value, date in zip(field_data['values'], field_data['dates']):
+                    # Truncate to day (remove time component)
+                    day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
+                    daily_sums[day_start] += value
+
+    if not daily_sums:
+        return [], []
+
+    # Sort by date and prepare output
+    sorted_days = sorted(daily_sums.items())
+    dates, values = zip(*sorted_days)
+
+    # Format dates as 'Month Day'
+    formatted_dates = [dt.strftime("%B %d") for dt in dates]
+
+    return list(values), list(formatted_dates)
+
+
+def get_specific_emotion_field_data(field_name):
+    """
+    Retrieves and aggregates data for a specific field from a MongoDB collection,
+    grouping values into 30-minute intervals.
+
+    Args:
+        field_name (str): The name of the field to query (e.g., 'check_cancellation_fee').
+
+    Returns:
+        tuple: Two NumPy arrays:
+            - interval_values_array: Aggregated values for each 30-minute interval.
+            - interval_dates_array: Corresponding start times of intervals, formatted as strings.
+    """
+    # Initialize empty lists to store values and dates (though not used directly in final output)
+    values = []
+    dates = []
+
+    # Query the MongoDB collection 'call_categorise' to retrieve values and dates for the specified field
+    # Excludes '_id' and projects only the field's 'values' and 'dates' subfields
+    cursor = emotion_call_categories.find({}, {field_name + '.values': 1, field_name + '.dates': 1, '_id': 0})
+
+    # Create a defaultdict to accumulate sums of values for each 30-minute interval
+    interval_sums = defaultdict(int)
+    # List to store interval start times (though not used directly in final output)
+    interval_dates = []
+
+    # Iterate through each document in the query result
+    for doc in cursor:
+        # Check if the specified field exists in the document
+        if field_name in doc:
+            # Extract the field data (contains 'values' and 'dates')
+            field_data = doc[field_name]
+            # Validate that field_data exists and contains both 'values' and 'dates'
+            if field_data and 'values' in field_data and 'dates' in field_data:
+                # Iterate through paired values and dates using zip
+                for value, date in zip(field_data['values'], field_data['dates']):
+                    # Calculate the start of the 30-minute interval for the given date
+                    # Rounds down to the nearest 30-minute boundary by removing minutes, seconds, and microseconds
                     interval_start = date - timedelta(minutes=date.minute % 30, seconds=date.second,
                                                       microseconds=date.microsecond)
+                    # Calculate the end of the 30-minute interval (not used but computed for clarity)
                     interval_end = interval_start + timedelta(minutes=30)
+                    # Add the value to the sum for the corresponding interval start time
                     interval_sums[interval_start] += value
 
+    # Sort the interval sums by date (keys) to ensure chronological order
     sorted_intervals = sorted(interval_sums.items())
+    # Unzip the sorted intervals into separate lists of dates and values
     interval_dates, interval_values = zip(*sorted_intervals)
 
-    # Format datetime values to include year, month, day, hour, and minute
+    # Format each datetime object as a string in 'YYYY-MM-DD HH:MM:SS' format
     interval_dates = [dt.strftime("%Y-%m-%d %H:%M:%S") for dt in interval_dates]
 
-    # Convert to NumPy arrays
+    # Convert the values and dates to NumPy arrays for efficient processing and compatibility
     interval_values_array = np.array(interval_values)
     interval_dates_array = np.array(interval_dates)
 
+    # Return the arrays of aggregated values and formatted dates
+    return interval_values_array, interval_dates_array
+
+def get_specific_field_data(field_name):
+    """
+    Retrieves and aggregates data for a specific field from a MongoDB collection,
+    grouping values into 30-minute intervals.
+
+    Args:
+        field_name (str): The name of the field to query (e.g., 'check_cancellation_fee').
+
+    Returns:
+        tuple: Two NumPy arrays:
+            - interval_values_array: Aggregated values for each 30-minute interval.
+            - interval_dates_array: Corresponding start times of intervals, formatted as strings.
+    """
+    # Initialize empty lists to store values and dates (though not used directly in final output)
+    values = []
+    dates = []
+
+    # Query the MongoDB collection 'call_categorise' to retrieve values and dates for the specified field
+    # Excludes '_id' and projects only the field's 'values' and 'dates' subfields
+    cursor = intent_call_categorise.find({}, {field_name + '.values': 1, field_name + '.dates': 1, '_id': 0})
+
+    # Create a defaultdict to accumulate sums of values for each 30-minute interval
+    interval_sums = defaultdict(int)
+    # List to store interval start times (though not used directly in final output)
+    interval_dates = []
+
+    # Iterate through each document in the query result
+    for doc in cursor:
+        # Check if the specified field exists in the document
+        if field_name in doc:
+            # Extract the field data (contains 'values' and 'dates')
+            field_data = doc[field_name]
+            # Validate that field_data exists and contains both 'values' and 'dates'
+            if field_data and 'values' in field_data and 'dates' in field_data:
+                # Iterate through paired values and dates using zip
+                for value, date in zip(field_data['values'], field_data['dates']):
+                    # Calculate the start of the 30-minute interval for the given date
+                    # Rounds down to the nearest 30-minute boundary by removing minutes, seconds, and microseconds
+                    interval_start = date - timedelta(minutes=date.minute % 30, seconds=date.second,
+                                                      microseconds=date.microsecond)
+                    # Calculate the end of the 30-minute interval (not used but computed for clarity)
+                    interval_end = interval_start + timedelta(minutes=30)
+                    # Add the value to the sum for the corresponding interval start time
+                    interval_sums[interval_start] += value
+
+    # Sort the interval sums by date (keys) to ensure chronological order
+    sorted_intervals = sorted(interval_sums.items())
+    # Unzip the sorted intervals into separate lists of dates and values
+    interval_dates, interval_values = zip(*sorted_intervals)
+
+    # Format each datetime object as a string in 'YYYY-MM-DD HH:MM:SS' format
+    interval_dates = [dt.strftime("%Y-%m-%d %H:%M:%S") for dt in interval_dates]
+
+    # Convert the values and dates to NumPy arrays for efficient processing and compatibility
+    interval_values_array = np.array(interval_values)
+    interval_dates_array = np.array(interval_dates)
+
+    # Return the arrays of aggregated values and formatted dates
     return interval_values_array, interval_dates_array
 
 
@@ -138,7 +316,7 @@ def home():
 # Route for the signup page
 @app.route('/signup/')
 def signup():
-    return render_template('signup.html')
+    return render_template('signup.html', RECAPTCHA_SITE_KEY=RECAPTCHA_SITE_KEY)
 
 
 # Route for the homepage after successful signup or login
@@ -155,7 +333,7 @@ def homepage():
 # Route for displaying login page
 @app.route('/login')
 def login():
-    return render_template('login.html')
+    return render_template('login.html', RECAPTCHA_SITE_KEY=RECAPTCHA_SITE_KEY)
 
 
 # Route for handling user login
@@ -240,7 +418,7 @@ def user_signup():
             flash(f"Error occurred: {str(e)}", "error")
             return redirect(url_for('user_signup'))
 
-    return render_template('signup.html')
+    return render_template('signup.html', RECAPTCHA_SITE_KEY=RECAPTCHA_SITE_KEY)
 
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
@@ -439,62 +617,191 @@ def logout():
 
     return redirect(url_for('home'))  # Redirect to your desired endpoint after logout
 
+
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
 def upload_file():
     if request.method == 'POST':
         try:
+            # Check if file is present in the request
             if 'file' not in request.files:
                 flash('No file part', 'error')
                 return redirect(request.url)
 
             uploaded_file = request.files['file']
 
+            # Check if a file was actually selected
             if uploaded_file.filename == '':
                 flash('No selected file', 'error')
                 return redirect(request.url)
 
+            customer_id = ObjectId(session['user_id'])
+
+            # Validate file type and process if valid
             if uploaded_file and allowed_file(uploaded_file.filename):
-                # Save the uploaded MP3 file to a temporary file
+                # Save the uploaded MP3 file securely
                 filename = secure_filename(uploaded_file.filename)
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 uploaded_file.save(file_path)
 
-                # Perform audio transcription using the file path
+
+
+                # Print emotions found
+                print("\n" + "=" * 50)
+                print("Performing emotion classification...")
+                print("=" * 50)
+
+                # Convert forward slashes to proper path format
+                normalized_file_path = str(Path(file_path).resolve())
+
+                # Use the backward compatible function (minimal changes to your code)
+                wav_path = mp3_to_wav(normalized_file_path)
+
+                # Continue with emotion prediction
+                emotion_results = get_emotion_prediction(wav_path)
+
+                print("\n" + "=" * 50)
+                print("MOST FREQUENT EMOTION")
+                print("\n" + "=" * 50)
+                print(f"Most frequent emotion: {emotion_results['most_frequent_emotion']}")
+                print(f"Emotion counts: {dict(emotion_results['emotion_counts'])}")
+                print(f"Emotion percentage: {dict(emotion_results['emotion_percentage'])}")
+
+                # Get current timestamp for this prediction
+                current_date = datetime.datetime.now()
+
+                # Prepare MongoDB update query to add new data point
+                # This pushes a new value (1) and corresponding date to the emotion's arrays
+                emotion_category = emotion_results['most_frequent_emotion']
+                update_query = {
+                    "$push": {
+                        f"{emotion_category}.values": 1,  # Increment count for this emotion
+                        f"{emotion_category}.dates": current_date  # Record when this prediction was made
+                    }
+                }
+
+                # Update the emotion_call_categories collection
+                # Uses upsert=True to create document if it doesn't exist
+                emotion_call_categories.update_one(
+                    {"customer_id": customer_id},
+                    update_query,
+                    upsert=True
+                )
+
+                # Also store individual call record in call_files collection
+                call_files.insert_one({
+                    "customer_id": customer_id,
+                    "video_file_name": filename,
+                    "category": emotion_category,  # Emotions category
+                    "probability": float(emotion_results['emotion_percentage'][emotion_category]) / 100.0  # Convert percentage to probability (0-1),  # Emotion probability
+                })
+
+                # Print emotions found
+                print("\n" + "=" * 50)
+                print("Performing intent classification...")
+                print("=" * 50)
+
+                print("Starting transcription...")
+
+                # Perform audio transcription
                 customer_care_call = audio_transcription(file_path)
 
-                # Perform text classification
-                categories, descriptions = classify_text_results(customer_care_call)
+                print("\nTranscription complete!")
+                print("-" * 50)
+                print(customer_care_call)
+                print("-" * 50)
 
-                print(categories)
-                print(descriptions)
+                # Split transcription into sentences for classification
+                customer_care_call_sentences = sent_tokenize(customer_care_call)
 
-                if categories and descriptions:
-                    customer_id = ObjectId(session['user_id'])  # Convert to ObjectId
+                # Perform text classification on each sentence
+                categories, descriptions, class_probabilities = classify_sentences(customer_care_call_sentences)
 
-                    for category, description in zip(categories, descriptions):
-                        # Prepare values and dates
+                # FIXED: Handle different probability data types safely
+                top_probabilities = []
+                for i, probs in enumerate(class_probabilities):
+                    try:
+                        # Handle NumPy arrays (most common source of the error)
+                        if hasattr(probs, 'max') and hasattr(probs, 'shape'):
+                            # This is likely a NumPy array
+                            if probs.shape == ():
+                                # Scalar NumPy array (0-dimensional)
+                                top_probabilities.append(float(probs.item()))
+                            else:
+                                # Multi-dimensional NumPy array
+                                top_probabilities.append(float(probs.max()))
+                        # Handle regular Python lists or tuples
+                        elif isinstance(probs, (list, tuple)):
+                            if len(probs) > 0:
+                                top_probabilities.append(max(probs))
+                            else:
+                                top_probabilities.append(0.0)
+                        # Handle single scalar values (int, float)
+                        elif isinstance(probs, (int, float)):
+                            top_probabilities.append(float(probs))
+                        # Handle other iterable types
+                        elif hasattr(probs, '__iter__'):
+                            prob_list = list(probs)
+                            if len(prob_list) > 0:
+                                top_probabilities.append(max(prob_list))
+                            else:
+                                top_probabilities.append(0.0)
+                        else:
+                            # Fallback: try to convert to float
+                            top_probabilities.append(float(probs))
+                    except Exception as prob_error:
+                        # If all else fails, use 0.0 as default probability
+                        print(f"Warning: Could not process probability at index {i}: {prob_error}")
+                        top_probabilities.append(0.0)
+
+                # Combine categories with their corresponding probabilities
+                results = list(zip(categories, top_probabilities))
+
+                # Sort results by probability in descending order (highest confidence first)
+                sorted_results = sorted(results, key=lambda x: x[1], reverse=True)
+
+                # Extract the top three predictions
+                top_three = sorted_results[:3]
+
+                # Display the top 3 predictions with their confidence scores
+                print("\n" + "=" * 50)
+                print("\nTop 3 Predicted Categories and Probabilities (Highest to Lowest):")
+                print("\n" + "=" * 50)
+
+                for category, probability in top_three:
+                    print(f"Category: {category}, Probability: {probability:.4f}")
+
+                # Store results in MongoDB if we have valid predictions
+                if categories and top_probabilities:
+
+                    # Process each category-probability pair
+                    for category, probability in zip(categories, top_probabilities):
+                        # Get current timestamp for this prediction
                         current_date = datetime.datetime.now()
+
+                        # Prepare MongoDB update query to add new data point
+                        # This pushes a new value (1) and corresponding date to the category's arrays
                         update_query = {
                             "$push": {
-                                f"{category}.values": 1,  # Example value, adjust as needed
-                                f"{category}.dates": current_date
+                                f"{category}.values": 1,  # Increment count for this category
+                                f"{category}.dates": current_date  # Record when this prediction was made
                             }
                         }
 
-                        # Update MongoDB collection
-                        call_categorise.update_one(
+                        # Update the call_categorise collection
+                        # Uses upsert=True to create document if it doesn't exist
+                        intent_call_categorise.update_one(
                             {"customer_id": customer_id},
                             update_query,
-                            upsert=True  # Create a new document if it doesn't exist
+                            upsert=True
                         )
 
-                        # Insert into call_files collection
+                        # Also store individual call record in call_files collection
                         call_files.insert_one({
                             "customer_id": customer_id,
                             "video_file_name": filename,
                             "category": category,
-                            "probability": description,
+                            "probability": float(probability),  # Ensure it's stored as Python float
                         })
 
                     flash('File successfully uploaded and categorized', 'success')
@@ -506,17 +813,28 @@ def upload_file():
                 return redirect(request.url)
 
         except Exception as e:
-            flash(f"Error occurred: {str(e)}", 'error')
+            # Enhanced error handling with debug information
+            error_message = f"Error occurred: {str(e)}"
+            flash(error_message, 'error')
+
+            # Print detailed error information for debugging
+            print(f"Upload Error: {error_message}")
+            import traceback
+            print(f"Full traceback: {traceback.format_exc()}")
+
             return redirect(request.url)
 
+        # Redirect back to upload page after successful processing
         return redirect(url_for('upload_file'))
 
     elif request.method == 'GET':
-        customer_id = ObjectId(session['user_id'])  # Convert to ObjectId
+        # Handle GET request to display upload page with previous uploads
+        customer_id = ObjectId(session['user_id'])
 
-        # Fetch data from call_files collection
+        # Fetch all previous call records for this customer
         customer_data = call_files.find({"customer_id": customer_id})
 
+        # Prepare data for template display
         customers = []
         for data in customer_data:
             customers.append({
@@ -525,8 +843,8 @@ def upload_file():
                 'probability': data.get('probability', 'N/A')
             })
 
+        # Render the upload template with previous upload history
         return render_template('upload.html', customers=customers)
-
 
 
 @app.route('/profile')
@@ -632,118 +950,262 @@ def upload_image():
     return render_template('upload_image.html')
 
 
+# Define the Flask route for data visualization, handling both GET and POST requests
+# The @login_required decorator ensures only authenticated users can access this route
 @app.route('/data_visualisation/', methods=['GET', 'POST'])
 @login_required
 def data_visualisation():
-    if request.method == "POST":
-        field_names = {
-            "track_refund": "Track Refund",
-            "review": "Review",
-            "cancel_order": "Cancel Order",
-            "switch_account": "Switch Account",
-            "edit_account": "Edit Account",
-            "contact_customer_service": "Contact Customer Service",
-            "place_order": "Place Order",
-            "check_payment_methods": "Check Payment Methods",
-            "payment_issue": "Payment Issue",
-            "contact_human_agent": "Contact Human Agent",
-            "complaint": "Complaint",
-            "recover_password": "Recover Password",
-            "delivery_period": "Delivery Period",
-            "check_invoices": "Check Invoices",
-            "track_order": "Track Order",
-            "delete_account": "Delete Account",
-            "get_invoice": "Get Invoice",
-            "change_order": "Change Order",
-            "delivery_options": "Delivery Options",
-            "check_invoice": "Check Invoice",
-            "create_account": "Create Account",
-            "set_up_shipping_address": "Set Up Shipping Address",
-            "check_refund_policy": "Check Refund Policy",
-            "newsletter_subscription": "Newsletter Subscription",
-            "get_refund": "Get Refund",
-            "check_cancellation_fee": "Check Cancellation Fee",
-            "registration_problems": "Registration Problems",
-            "change_shipping_address": "Change Shipping Address"
-        }
+    # Dictionary mapping database field names (keys) to user-friendly category names (values)
+    # Used to display readable category names in the UI and map user selections back to database fields
+    intent_names = {
+        "cancel_order": "Cancel Order",
+        "change_order": "Change Order",
+        "change_shipping_address": "Change Shipping Address",
+        "check_cancellation_fee": "Check Cancellation Fee",
+        "check_invoices": "Check Invoices",
+        "check_payment_methods": "Check Payment Methods",
+        "check_refund_policy": "Check Refund Policy",
+        "complaint": "Complaint",
+        "contact_customer_service": "Contact Customer Service",
+        "contact_human_agent": "Contact Human Agent",
+        "create_account": "Create Account",
+        "delete_account": "Delete Account",
+        "delivery_options": "Delivery Options",
+        "delivery_period": "Delivery Period",
+        "edit_account": "Edit Account",
+        "get_invoice": "Get Invoice",
+        "get_refund": "Get Refund",
+        "newsletter_subscription": "Newsletter Subscription",
+        "payment_issue": "Payment Issue",
+        "place_order": "Place Order",
+        "recover_password": "Recover Password",
+        "registration_problems": "Registration Problems",
+        "review": "Review",
+        "set_up_shipping_address": "Set Up Shipping Address",
+        "switch_account": "Switch Account",
+        "track_order": "Track Order",
+        "track_refund": "Track Refund"
+    }
 
-        category = request.form.get('category')
+    # Wrap the main logic in a try-except block to handle potential errors gracefully
+    try:
+        if request.method == "POST":
+            category = request.form.get('category')
+            if not category:
+                flash("Please select a category.", "error")
+                return render_template('data_visualisation.html', plot_div="", field_names=intent_names)
 
-        # Find the key for the value category
-        value_to_find = category
-        key = None
+            key = next((k for k, v in intent_names.items() if v == category), None)
+            if not key:
+                flash(f"Invalid category: {category}", "error")
+                return render_template('data_visualisation.html', plot_div="", field_names=intent_names)
 
-        # Reverse the dictionary and look up the key
-        for k, v in field_names.items():
-            if v == value_to_find:
-                key = k
-                break
+            # Use modified function to get daily summed data
+            values, dates = get_summed_intent_data(key)
+            if not values or not dates:
+                flash(f"No data available for {category}", "warning")
+                return render_template('data_visualisation.html', plot_div="", field_names=intent_names)
 
-        values, dates = get_specific_field_data(key)
+            # Create bar chart with daily values
+            fig = go.Figure()
+            fig.add_trace(go.Bar(x=dates, y=values, name=category))
+            fig.update_layout(
+                title=f'Daily {category} Calls Trends',
+                xaxis_title='Date',
+                yaxis_title='Total Calls',
+                xaxis=dict(
+                    tickformat='%B %d',  # Format as "Month Day" (e.g., June 25)
+                    tickangle=45
+                )
+            )
+            plot_div = fig.to_html(full_html=False, include_plotlyjs=True)
 
-        # Create the Plotly figure
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=dates, y=values, mode='lines', name='Line'))
-        fig.update_layout(title='Line Chart for Catgeory: ' + category, xaxis_title='Dates', yaxis_title='Values')
+        # Handle GET requests (initial page load)
+        else:
+            # GET request - Create pie chart showing top 5 intent distribution
+            intent_totals = {}
 
-        # Update date format to display hours as the smallest measure
-        fig.update_xaxes(type='date', tickformat='%Y-%m-%d %H:%M:%S')
+            # Get data for all intents
+            for field_name, display_name in intent_names.items():
+                values, dates = get_specific_field_data(field_name)
+                if values is not None and len(values) > 0:
+                    # Sum all values for this intent across all intervals
+                    intent_totals[display_name] = int(np.sum(values))
+                else:
+                    intent_totals[display_name] = 0
 
-        # Convert the plot to HTML directly embedding the div
-        plot_div = fig.to_html(full_html=False)
+            # Check if we have any data
+            total_sum = sum(intent_totals.values())
 
-        return render_template('data_visualisation.html', plot_div=plot_div, field_names=field_names)
-    else:
-        field_names = {
-            "track_refund": "Track Refund",
-            "review": "Review",
-            "cancel_order": "Cancel Order",
-            "switch_account": "Switch Account",
-            "edit_account": "Edit Account",
-            "contact_customer_service": "Contact Customer Service",
-            "place_order": "Place Order",
-            "check_payment_methods": "Check Payment Methods",
-            "payment_issue": "Payment Issue",
-            "contact_human_agent": "Contact Human Agent",
-            "complaint": "Complaint",
-            "recover_password": "Recover Password",
-            "delivery_period": "Delivery Period",
-            "check_invoices": "Check Invoices",
-            "track_order": "Track Order",
-            "delete_account": "Delete Account",
-            "get_invoice": "Get Invoice",
-            "change_order": "Change Order",
-            "delivery_options": "Delivery Options",
-            "check_invoice": "Check Invoice",
-            "create_account": "Create Account",
-            "set_up_shipping_address": "Set Up Shipping Address",
-            "check_refund_policy": "Check Refund Policy",
-            "newsletter_subscription": "Newsletter Subscription",
-            "get_refund": "Get Refund",
-            "check_cancellation_fee": "Check Cancellation Fee",
-            "registration_problems": "Registration Problems",
-            "change_shipping_address": "Change Shipping Address"
-        }
+            if total_sum == 0:
+                flash("No intent data available", "warning")
+                return render_template('data_visualisation.html', plot_div="", field_names=intent_names)
 
-        field_name = "check_cancellation_fee"
+            # Debug prints
+            print("Intent totals:", intent_totals)
+            print("Total sum:", total_sum)
 
-        category = field_names[field_name]
+            # Get top 5 intents
+            top_intents = sorted(intent_totals.items(), key=lambda x: x[1], reverse=True)[:5]
+            labels, values = zip(*top_intents) if top_intents else ([], [])
 
-        values, dates = get_specific_field_data(field_name)
+            # Define colors for the top 5 intents
+            colors = ['#4682B4', '#32CD32', '#DC143C', '#B22222',
+                      '#FFD700']  # Steel Blue, Lime Green, Crimson, Firebrick, Gold
 
-        # Create the Plotly figure
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=dates, y=values, mode='lines', name='Line'))
-        fig.update_layout(title='Line Chart for Catgeory: ' + category, xaxis_title='Dates', yaxis_title='Values')
+            # Create pie chart
+            fig = go.Figure(data=[go.Pie(
+                labels=labels,
+                values=values,
+                hole=0,  # Set to 0 for full pie chart, increase (e.g., 0.3) for donut chart
+                textinfo='label+percent',
+                textposition='auto',
+                marker=dict(colors=colors[:len(labels)]),  # Use only as many colors as needed
+                hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>'
+            )])
 
-        # Update date format to display hours as the smallest measure
-        fig.update_xaxes(type='date', tickformat='%Y-%m-%d %H:%M:%S')
+            fig.update_layout(
+                title={
+                    'text': 'Top 5 Intent Distribution',
+                    'x': 0.5,
+                    'xanchor': 'center',
+                    'font': {'size': 20}
+                },
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="middle",
+                    y=0.5,
+                    xanchor="left",
+                    x=1.01
+                ),
+                margin=dict(t=60, b=40, l=40, r=100),  # Adjust margins for legend
+                height=450,  # Set a fixed height for consistency
+                width=550  # Set a fixed width for consistency
+            )
 
-        # Convert the plot to HTML directly embedding the div
-        plot_div = fig.to_html(full_html=False)
+            # Generate HTML for the pie chart
+            plot_div = fig.to_html(full_html=False, include_plotlyjs=True)
 
-        # Render the HTML template with the plot div
-        return render_template('data_visualisation.html', plot_div=plot_div, field_names=field_names)
+        return render_template('data_visualisation.html', plot_div=plot_div, field_names=intent_names)
+
+    except Exception as e:
+        flash(f"Error generating visualization: {str(e)}", "error")
+        return render_template('data_visualisation.html', plot_div="", field_names=intent_names)
+
+
+@app.route('/emotion_visualisation/', methods=['GET', 'POST'])
+@login_required
+def emotion_visualisation():
+    emotion_names = {
+        "neutral": "Neutral",
+        "happy": "Happy",
+        "angry": "Angry",
+        "sad": "Sad"
+    }
+
+    try:
+        if request.method == "POST":
+            category = request.form.get('category')
+            if not category:
+                flash("Please select a category.", "error")
+                return render_template('emotion_visualization.html', plot_div="", field_names=emotion_names)
+
+            key = next((k for k, v in emotion_names.items() if v == category), None)
+            if not key:
+                flash(f"Invalid category: {category}", "error")
+                return render_template('emotion_visualization.html', plot_div="", field_names=emotion_names)
+
+            # Use modified function to get daily summed data
+            values, dates = get_summed_emotion_data(key)
+            if not values or not dates:
+                flash(f"No data available for {category}", "warning")
+                return render_template('emotion_visualization.html', plot_div="", field_names=emotion_names)
+
+            # Create bar chart with daily values
+            fig = go.Figure()
+            fig.add_trace(go.Bar(x=dates, y=values, name=category))
+            fig.update_layout(
+                title=f'Daily {category} Calls Trends',
+                xaxis_title='Date',
+                yaxis_title='Total Calls',
+                xaxis=dict(
+                    tickformat='%B %d',  # Format as "Month Day" (e.g., June 25)
+                    tickangle=45
+                )
+            )
+            plot_div = fig.to_html(full_html=False, include_plotlyjs=True)
+
+        else:
+            # GET request - Create pie chart showing emotion distribution
+            emotion_totals = {}
+
+            # Get data for all emotions
+            for field_name, display_name in emotion_names.items():
+                values, dates = get_specific_emotion_field_data(field_name)
+                if values is not None and len(values) > 0:
+                    # Sum all values for this emotion across all intervals
+                    emotion_totals[display_name] = int(np.sum(values))
+                else:
+                    emotion_totals[display_name] = 0
+
+            # Check if we have any data
+            total_sum = sum(emotion_totals.values())
+
+            if total_sum == 0:
+                flash("No emotion data available", "warning")
+                return render_template('emotion_visualization.html', plot_div="", field_names=emotion_names)
+
+            # Debug prints
+            print("Emotion totals:", emotion_totals)
+            print("Total sum:", total_sum)
+
+            # Define colors to match different emotions
+            colors = ['#4682B4', '#32CD32', '#DC143C',
+                      '#B22222']  # Steel Blue (Neutral), Lime Green (Happy), Crimson (Angry), Firebrick (Sad)
+
+            # Create pie chart
+            labels = list(emotion_totals.keys())  # Fixed: Changed emotion_labels to emotion_totals
+            values = list(emotion_totals.values())
+
+            fig = go.Figure(data=[go.Pie(
+                labels=labels,
+                values=values,
+                hole=0,  # Set to 0 for full pie chart, increase (e.g., 0.3) for donut chart
+                textinfo='label+percent',
+                textposition='auto',
+                marker=dict(colors=colors),
+                hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>'
+            )])
+
+            fig.update_layout(
+                title={
+                    'text': 'Emotion Distribution',
+                    'x': 0.5,
+                    'xanchor': 'center',
+                    'font': {'size': 20}
+                },
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="middle",
+                    y=0.5,
+                    xanchor="left",
+                    x=1.01
+                ),
+                margin=dict(t=60, b=40, l=40, r=100),  # Adjust margins for legend
+                height=450,  # Set a fixed height for consistency
+                width=550  # Set a fixed width for consistency
+            )
+
+            # Generate HTML for the pie chart
+            plot_div = fig.to_html(full_html=False, include_plotlyjs=True)
+
+        return render_template('emotion_visualization.html', plot_div=plot_div, field_names=emotion_names)
+
+    except Exception as e:
+        flash(f"Error generating visualization: {str(e)}", "error")
+        return render_template('emotion_visualization.html', plot_div="", field_names=emotion_names)
 
 
 if __name__ == "__main__":

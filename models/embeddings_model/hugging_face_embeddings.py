@@ -24,12 +24,19 @@ all_words.sort()
 print("Unique words:", all_words)
 
 # Path to the locally downloaded model
-local_model_path = r"C:\Users\james\PycharmProjects\CustomerInsightAI\Customer-Insight-AI\models\word2vec_model"  # Replace with the actual path, e.g., /home/user/models/multilingual-e5
+local_model_path = r"C:\Users\james\PycharmProjects\CustomerInsightAI\Customer-Insight-AI\models\embeddings_model"
+
+# Verify that the model directory exists and contains necessary files
+if not os.path.exists(local_model_path):
+    raise FileNotFoundError(
+        f"Model directory '{local_model_path}' does not exist. Please download the model using huggingface_hub.")
 
 # Load the tokenizer and model from the local directory
-tokenizer = AutoTokenizer.from_pretrained(local_model_path)
-model = AutoModel.from_pretrained(local_model_path)
-
+try:
+    tokenizer = AutoTokenizer.from_pretrained(local_model_path)
+    model = AutoModel.from_pretrained(local_model_path)
+except Exception as e:
+    raise Exception(f"Failed to load model from '{local_model_path}': {str(e)}")
 
 def get_word_embeddings(texts):
     """
@@ -37,7 +44,7 @@ def get_word_embeddings(texts):
     Args:
         texts (list): List of words to embed.
     Returns:
-        numpy.ndarray: Array of embeddings for the input words.
+        numpy.ndarray: Array of normalized embeddings for the input words.
     """
     # Tokenize the input words
     inputs = tokenizer(texts, return_tensors="pt", padding=True, truncation=True)
@@ -48,8 +55,15 @@ def get_word_embeddings(texts):
 
     # Use mean pooling over the token embeddings to get a single vector per word
     embeddings = outputs.last_hidden_state.mean(dim=1).numpy()
-    return embeddings
 
+    # Normalize each embedding to unit length
+    # Compute the L2 norm for each embedding (along axis=1)
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    # Avoid division by zero by setting norms to 1 where they are 0
+    norms = np.where(norms == 0, 1, norms)
+    # Normalize embeddings
+    embeddings = embeddings / norms
+    return embeddings
 
 # Generate embeddings for all unique words
 word_embeddings = {}

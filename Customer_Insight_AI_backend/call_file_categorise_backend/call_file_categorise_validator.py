@@ -9,15 +9,17 @@ call_file_categorise_validator = {
             },
             "video_file_name": {
                 "bsonType": "string",
-                "description": "Enter a valid category"
+                "description": "Enter a valid video file name"
             },
             "category": {
                 "bsonType": "string",
                 "description": "Enter a valid category"
             },
             "probability": {
-                "bsonType": "string",
-                "description": "Valid Probability"
+                "bsonType": ["double", "int"],  # Accept both double and int
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Valid Probability between 0 and 1"
             }
         }
     }

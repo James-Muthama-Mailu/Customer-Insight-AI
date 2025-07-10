@@ -109,7 +109,7 @@ nav a:hover {
     height: auto;
 }
 
-#dashboard_link, #upload_link{
+#dashboard_link, #upload_link, #emotion_dashboard_link{
     color: white;
     text-decoration: none;
     margin-bottom: 40px;
@@ -151,7 +151,7 @@ nav a:hover {
 }
 
 
-#dashboard_link:hover, #upload_link:hover, #logout_link:hover{
+#dashboard_link:hover, #upload_link:hover, #logout_link:hover, #emotion_dashboard_link:hover{
     text-decoration: none;
 }
 

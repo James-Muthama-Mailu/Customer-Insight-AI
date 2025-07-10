@@ -1,9 +1,7 @@
-# models/categorisation_model/loading_categorisation_model.py
 from tensorflow.keras.models import load_model
 import os
 
 # Import the train_model function that trains a new model
-# from models.categorisation_model.training_and_evaluating_categorisation_model import train_model
 
 def load_or_train_model():
     # Use a relative path for better portability
