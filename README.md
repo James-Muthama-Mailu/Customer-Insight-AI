@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Customer Insight AI
 **Automated Understanding of Customer Feedback Using AI**
 
