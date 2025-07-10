@@ -192,6 +192,3 @@ This project is licensed under the Apache License. See the <a href="Apache_licen
 This project is licensed under the BSD-3-Clause License. See the <a href="BSD_3-Clause_license.txt">License</a> file for details.
 
 For any issues or contributions, feel free to reach out via the GitHub repository (https://github.com/James-Muthama-Mailu/Customer-Insight-AI/) or email (jame.muthama@strathmore.edu)
-=======
-# Customer-Insight-AI
->>>>>>> 
