@@ -6,10 +6,15 @@ CustomerInsightAI is a project aimed at automating the understanding of customer
 
 ## Project Components
 
-1. **Speech-to-Text Conversion**: The project includes functionality to convert speech from customer care conversations into text using OpenAI's Whisper model for speech recognition.
-2. **AI-based Categorization**: The converted text is then processed by an AI model to understand and categorize the content based on predefined categories.
-3. **Flask Web Application**: A Flask web application handles user input and allows users to interact with the system, including uploading audio files for processing and viewing categorized results.
-4. **Backend with MongoDB**: The backend, supported by MongoDB, stores the categorized data obtained from the AI model, allowing for efficient retrieval and analysis of categorized customer care conversations.
+1. **Emotion Categorization Model**: This model processes recorded customer calls by converting MP3 audio files to WAV format and directly analyzing the audio waveforms to classify emotional states (happy, frustrated, angry, sad, neutral, etc.) without requiring speech-to-text conversion.
+
+2. **Intent Categorization Model**: This model handles customer intent analysis through a two-step process:
+   - **Speech-to-Text Conversion**: Converts recorded call audio (MP3/WAV) into text using OpenAI's Whisper model for speech recognition
+   - **Text Categorization**: The converted text is then processed by an AI categorization model to identify customer intent and purpose (complaints, inquiries, requests, support issues, etc.)
+
+3. **Flask Web Application**: A Flask web application handles user input and allows users to interact with the system, including uploading audio files for processing and viewing both emotion and intent categorization results.
+
+4. **Backend with MongoDB**: The backend, supported by MongoDB, stores the categorized data obtained from both AI models, allowing for efficient retrieval and analysis of categorized customer care conversations with both emotional and intent insights.
 
 ## File Structure
 The project structure is organized as follows:
