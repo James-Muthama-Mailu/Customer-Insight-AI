@@ -49,7 +49,27 @@ The project structure is organized as follows:
 The primary goal of CustomerInsightAI is to streamline customer call analysis, providing valuable insights into customer sentiments and concerns. This can be particularly useful in the data visualisation of customer care calls.
 
 ## Dataset Used
-The project utilizes a dataset from Kaggle, found [here](https://www.kaggle.com/datasets/bitext/training-dataset-for-chatbotsvirtual-assistants).
+The project utilizes two specialized datasets to train its dual AI models:
+
+### Emotion Categorization Model Dataset
+The emotion categorization model is trained using the Speech Emotion Recognition dataset from Kaggle. This dataset contains audio samples with various emotional states to enable accurate emotion classification from customer call recordings.
+
+**Dataset**: [Speech Emotion Recognition (EN)](https://www.kaggle.com/datasets/dmitrybabko/speech-emotion-recognition-en)
+
+To download this dataset programmatically:
+```python
+import kagglehub
+
+# Download latest version
+path = kagglehub.dataset_download("dmitrybabko/speech-emotion-recognition-en")
+
+print("Path to dataset files:", path)
+```
+
+### Intent Categorization Model Dataset
+The intent categorization model is trained using a comprehensive dataset designed for chatbots and virtual assistants, which provides diverse examples of customer intents and purposes in conversational contexts.
+
+**Dataset**: [Training Dataset for Chatbots/Virtual Assistants](https://www.kaggle.com/datasets/bitext/training-dataset-for-chatbotsvirtual-assistants)
 
 ## Requirements
 Below are the required Python libraries as specified in the `requirements.txt` file:
