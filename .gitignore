@@ -12,6 +12,11 @@ venv/
 __pycache__/
 *.pyc
 
+.env
+
+audio_to_text/ffmpeg.exe
+audio_to_text/ffprobe.exe
+
 # Ignore dataset
 dataset/dataset.xlsx
 
