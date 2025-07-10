@@ -1,0 +1,31 @@
+# Ignore virtual environment
+venv/
+.venv/
+
+# PyCharm project settings
+.idea/
+*.iml
+/shelf/
+/workspace.xml
+
+# __pycache__ and Python bytecode
+__pycache__/
+*.pyc
+
+# Ignore dataset
+dataset/dataset.xlsx
+
+# Ignore pickled data and numpy arrays
+models/pickle/*.pkl
+models/pickle/*.npy
+
+# Ignore Keras model files
+models/intent_categorisation_model/*.keras
+
+# Ignore emotion datasets
+models/emotion_categorisation_model/emotion_dataset.csv
+models/emotion_categorisation_model/emotion_dataset_filtered.csv
+
+# Ignore directories from huggingface models and external data
+models/emotion_categorisation_model/speech-emotion-recognition-en/
+models/emotion_categorisation_model/models--speechbrain--emotion-recognition-wav2vec2-IEMOCAP/
