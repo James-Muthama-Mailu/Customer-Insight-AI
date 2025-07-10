@@ -26,11 +26,11 @@ The project structure is organized as follows:
 │ ├── init.py # Initialization script for the backend
 │ ├── connection.py # Database connection script
 ├── models
-│ ├── categorisation_model # Model for categorization
-│ ├── dataset # Dataset related scripts and files
-│ ├── pickle # Pickle files for model serialization
-│ ├── word2vec_model # Word2Vec model files
-│ ├── init.py # Initialization script for models
+│ ├── embeddings_model # Model for generating vector embeddings from text data
+│ ├── emotion_categorisation_model # Model for analyzing and categorizing emotional content in customer conversations
+│ ├── intent_categorisation_model # Model for identifying customer intent and purpose from conversation text
+│ ├── pickle # Pickle files for model serialization and storage
+│ ├── __init__.py # Initialization script for models directory
 ├── static
 │ ├── css # CSS files for styling
 │ ├── images # Image files
@@ -157,8 +157,8 @@ yarl==1.9.4
 ## How to Install the Project Locally
 1. Clone the repository:
    ```bash
-   git clone https://github.com/James-Muthama/CustomerInsightAI.git
-   cd CustomerInsightAI
+   git clone https://github.com/James-Muthama-Mailu/Customer-Insight-AI.git
+   cd Customer-Insight-AI
    ```
 
 2. Create and activate a virtual environment:
@@ -192,9 +192,7 @@ This project is licensed under the Apache License. See the <a href="Apache_licen
 
 This project is licensed under the BSD-3-Clause License. See the <a href="BSD_3-Clause_license.txt">License</a> file for details.
 
-
-
-For any issues or contributions, feel free to reach out via the GitHub repository (https://github.com/James-Muthama/CustomerInsightAI/) or email (jamesmuthaiks@gmail.com)
+For any issues or contributions, feel free to reach out via the GitHub repository (https://github.com/James-Muthama-Mailu/Customer-Insight-AI/) or email (jame.muthama@strathmore.edu)
 =======
 # Customer-Insight-AI
 >>>>>>> 
