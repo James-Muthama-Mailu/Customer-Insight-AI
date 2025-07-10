@@ -20,7 +20,7 @@ CustomerInsightAI is a project aimed at automating the understanding of customer
 The project structure is organized as follows:
 ```plaintext
 ├── .venv # Virtual environment
-├── audio_to_text # Directory for audio to text conversion scripts
+├── audio_to_text # Directory for audio to text and audio to wav file conversion scripts
 ├── Customer_Insight_AI_backend
 │ ├── admin_backend # Admin backend scripts
 │ ├── call_categorise_backend # Call categorization backend scripts
